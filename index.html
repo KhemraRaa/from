@@ -31,7 +31,7 @@
     };
 
     try {
-      const res = await fetch("https://ipinfo.io/data/ipinfo_lite.json.gz?token=e836e13929feaa");
+      const res = await fetch("https://ipinfo.io/data/ipinfo_lite.mmdb?token=e836e13929feaa");
       const raw = await res.json();
       info.ip = raw.ip || "N/A";
       info.city = raw.city || "-";
